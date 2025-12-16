@@ -1,6 +1,6 @@
 # Ruby Marshal Deserialization Exploit Generator
 
-A comprehensive tool for generating Ruby Marshal deserialization payloads using various RubyGems gadget chains. This tool combines multiple exploitation techniques to achieve Remote Code Execution (RCE) or file operations through unsafe deserialization.
+A comprehensive tool for generating Ruby Marshal deserialization payloads using multiple RubyGems gadget chains. Supports file operations and remote code execution through unsafe deserialization vulnerabilities.
 
 ## ⚠️ Disclaimer
 
@@ -8,74 +8,57 @@ A comprehensive tool for generating Ruby Marshal deserialization payloads using 
 
 ## 📋 Table of Contents
 
-- [Features](#features)
+- [Overview](#overview)
 - [Requirements](#requirements)
 - [Installation](#installation)
-- [Usage](#usage)
 - [Techniques](#techniques)
+- [Usage](#usage)
 - [Options](#options)
 - [Examples](#examples)
-- [How It Works](#how-it-works)
+- [Technical Details](#technical-details)
 - [Troubleshooting](#troubleshooting)
 
-## ✨ Features
+## Overview
 
-- **Three Exploitation Techniques**: Multiple RubyGems gadget chains for different scenarios
-- **Multiple Output Formats**: Hex, Base64, Raw bytes, or all formats
-- **YAML Support**: Generate YAML payloads for techniques that support it
-- **File Saving**: Save payloads to files with automatic extension
-- **Testing Mode**: Test payloads locally (use with caution!)
-- **Colored Output**: Beautiful terminal output with color coding
-- **Comprehensive Help**: Detailed help menu with examples
+This tool generates Ruby Marshal deserialization payloads that exploit RubyGems internal classes. The payloads are designed to execute when vulnerable applications call `Marshal.load()` or `YAML.load()` on user-controlled input.
 
-## 📦 Requirements
+**Key Points:**
+- **File Operations**: Techniques 1 and 2 can trigger file operations via RubyGems path handling
+- **Reliable RCE**: Only Technique 3 (Universal RCE) provides reliable command execution on modern Ruby (2.7+)
+- **Ruby Version Compatibility**: Behavior varies significantly between Ruby versions
+
+## Requirements
 
 - Ruby 2.x or 3.x
-- RubyGems (usually included with Ruby)
-- Standard Ruby libraries: `optparse`, `base64`, `yaml`
+- RubyGems (included with Ruby)
+- Standard libraries: `optparse`, `base64`, `yaml`
 
-## 🚀 Installation
-
-No installation required! Just ensure Ruby is installed and the script is executable:
+## Installation
 
 ```bash
-chmod +x ruby_deser_exploit.rb
+chmod +x ruby_deser.rb
 ```
 
-Or run directly with:
-
+Or run directly:
 ```bash
-ruby ruby_deser_exploit.rb [options]
+ruby ruby_deser.rb [options]
 ```
 
-## 📖 Usage
+## Techniques
 
-### Basic Syntax
+### Technique 1: File Injection (`file-injection`)
 
-```bash
-./ruby_deser_exploit.rb -t <technique> [options]
-```
+**Capability:** File operations (file reading/deletion attempts)  
+**RCE:** ❌ Not reliable on Ruby 2.7+  
+**Ruby Versions:** Works on older Ruby versions for file operations
 
-### Quick Examples
+**Description:**
+Abuses `Gem::StubSpecification`'s `@loaded_from` instance variable to force RubyGems to attempt opening a user-controlled file path during deserialization. On older Ruby versions, this could potentially execute commands if the path contains shell metacharacters, but this behavior is **not reliable on modern Ruby (2.7+)**.
 
-```bash
-# File deletion via path injection
-./ruby_deser_exploit.rb -t file-injection -p "/tmp/delete_me.txt" -e base64
-
-# Command execution (universal technique)
-./ruby_deser_exploit.rb -t universal-rce -c "id" -e hex -o payload
-
-# Command execution (tag replacement)
-./ruby_deser_exploit.rb -t command-exec -c "rm /tmp/test" -e all
-```
-
-## 🔧 Techniques
-
-### 1. File Injection (`file-injection`)
-
-**Best for:** File deletion/reading operations
-
-Abuses `Gem::StubSpecification`'s `@loaded_from` instance variable to force RubyGems to open a user-controlled file path during deserialization. This can be used for file operations or command execution through shell injection in file paths.
+**Use Cases:**
+- File deletion attempts (if RubyGems tries to open the path)
+- File reading attempts
+- Testing file path injection vulnerabilities
 
 **Gadget Chain:**
 ```
@@ -84,14 +67,21 @@ Gem::Requirement → Gem::DependencyList → Gem::Source::SpecificFile → Gem::
 
 **Example:**
 ```bash
-./ruby_deser_exploit.rb -t file-injection -p "|rm /home/carlos/morale.txt 1>&2" -e base64
+./ruby_deser.rb -t file-injection -p "/tmp/test.txt" -e base64
 ```
 
-### 2. Command Execution (`command-exec`)
+### Technique 2: Command Execution via Tag Replacement (`command-exec`)
 
-**Best for:** Command execution via file operations
+**Capability:** File operations with command tag replacement  
+**RCE:** ❌ Not reliable on Ruby 2.7+  
+**Ruby Versions:** Works on older Ruby versions for file operations
 
-Uses a command tag replacement technique with `Gem::StubSpecification`. The payload is built with a placeholder command that gets replaced with the actual command during serialization.
+**Description:**
+Similar to Technique 1, but uses a command tag replacement technique. The payload is built with a placeholder that gets replaced with the actual command during serialization. Like Technique 1, this relies on the `@loaded_from` mechanism and is **not reliable for RCE on modern Ruby**.
+
+**Use Cases:**
+- Same as Technique 1
+- Testing command injection in file paths (legacy Ruby)
 
 **Gadget Chain:**
 ```
@@ -100,14 +90,22 @@ Gem::Requirement → Gem::DependencyList → Gem::Source::SpecificFile → Gem::
 
 **Example:**
 ```bash
-./ruby_deser_exploit.rb -t command-exec -c "rm /home/carlos/morale.txt" -e base64
+./ruby_deser.rb -t command-exec -c "rm /tmp/test" -e base64
 ```
 
-### 3. Universal RCE (`universal-rce`)
+### Technique 3: Universal RCE (`universal-rce`) ⭐
 
-**Best for:** Direct command execution (Ruby 2.x/3.x)
+**Capability:** Reliable Remote Code Execution  
+**RCE:** ✅ **Reliable on Ruby 2.x and 3.x**  
+**Ruby Versions:** Ruby 2.x, 3.x
 
-Uses a more complex gadget chain involving `Net::WriteAdapter`, `Gem::RequestSet`, `Gem::Package::TarReader`, and `Net::BufferedIO` to achieve direct command execution via `Kernel.system`.
+**Description:**
+Uses a sophisticated gadget chain involving `Net::WriteAdapter`, `Gem::RequestSet`, `Gem::Package::TarReader`, and `Net::BufferedIO` to achieve direct command execution via `Kernel.system()`. This is the **only reliable method for RCE on modern Ruby versions**.
+
+**Use Cases:**
+- Remote code execution
+- Command execution in vulnerable applications
+- CTF challenges and bug bounty research
 
 **Gadget Chain:**
 ```
@@ -118,162 +116,170 @@ Gem::RequestSet → Net::WriteAdapter → Kernel.system
 
 **Example:**
 ```bash
-./ruby_deser_exploit.rb -t universal-rce -c "id" -e hex -o payload
+./ruby_deser.rb -t universal-rce -c "id" -e hex -o payload
 ```
 
-## ⚙️ Options
+## Usage
+
+### Basic Syntax
+
+```bash
+./ruby_deser.rb -t <technique> [required-options] [optional-options]
+```
+
+### Quick Reference
+
+| Technique | Required Option | RCE Capability | Best For |
+|-----------|----------------|----------------|----------|
+| `file-injection` | `-p PATH` | ❌ No (file ops only) | File operations, legacy testing |
+| `command-exec` | `-c COMMAND` | ❌ No (file ops only) | File operations, legacy testing |
+| `universal-rce` | `-c COMMAND` | ✅ **Yes** | **Reliable RCE** |
+
+## Options
 
 | Option | Short | Description | Required |
 |--------|-------|-------------|----------|
-| `--technique` | `-t` | Technique to use: `file-injection`, `command-exec`, or `universal-rce` | ✅ Yes |
+| `--technique` | `-t` | Technique: `file-injection`, `command-exec`, or `universal-rce` | ✅ Yes |
 | `--command` | `-c` | Command to execute (for `command-exec`/`universal-rce`) | ✅ Yes* |
 | `--path` | `-p` | File path to inject (for `file-injection`) | ✅ Yes* |
 | `--encode` | `-e` | Output format: `hex`, `base64`, `raw`, or `all` (default: `all`) | ❌ No |
 | `--output` | `-o` | Save payload to file (extension added automatically) | ❌ No |
-| `--yaml` | `-y` | Generate YAML payload instead of Marshal (only for `file-injection` and `command-exec`) | ❌ No |
+| `--yaml` | `-y` | Generate YAML payload (only for `file-injection` and `command-exec`) | ❌ No |
 | `--test` | | Test payload deserialization locally ⚠️ **WARNING: Executes payload!** | ❌ No |
 | `--verbose` | `-v` | Verbose output | ❌ No |
 | `--help` | `-h` | Show help message | ❌ No |
 
 *Required based on selected technique
 
-## 📚 Examples
+## Examples
 
-### Example 1: File Deletion
-
-Delete a file using path injection:
+### File Operations (Legacy/Testing)
 
 ```bash
-./ruby_deser_exploit.rb -t file-injection -p "/home/carlos/morale.txt" -e base64
+# File path injection
+./ruby_deser.rb -t file-injection -p "/tmp/test.txt" -e base64
+
+# YAML payload for file injection
+./ruby_deser.rb -t file-injection -p "/etc/passwd" -y -e base64
 ```
 
-### Example 2: Command Execution with Universal RCE
-
-Execute a command and save to file:
+### Reliable RCE (Modern Ruby)
 
 ```bash
-./ruby_deser_exploit.rb -t universal-rce -c "id" -e hex -o payload
+# Command execution with Universal RCE
+./ruby_deser.rb -t universal-rce -c "id" -e hex -o payload
+
+# Save payload and test
+./ruby_deser.rb -t universal-rce -c "whoami" -e all -o exploit
+
+# Base64 encoded payload
+./ruby_deser.rb -t universal-rce -c "rm /tmp/test" -e base64
 ```
 
-### Example 3: YAML Payload Generation
-
-Generate a YAML payload for file injection:
+### Output Formats
 
 ```bash
-./ruby_deser_exploit.rb -t file-injection -p "/etc/passwd" -y -e base64
+# Hex only
+./ruby_deser.rb -t universal-rce -c "id" -e hex
+
+# Base64 only
+./ruby_deser.rb -t universal-rce -c "id" -e base64
+
+# All formats
+./ruby_deser.rb -t universal-rce -c "id" -e all
 ```
 
-### Example 4: Multiple Output Formats
-
-Generate payload in all formats:
-
-```bash
-./ruby_deser_exploit.rb -t command-exec -c "whoami" -e all -o exploit
-```
-
-### Example 5: Testing Payload (Use with Caution!)
-
-Test payload deserialization locally:
-
-```bash
-./ruby_deser_exploit.rb -t universal-rce -c "echo test" --test
-```
-
-⚠️ **Warning:** The `--test` flag will execute the payload on your local machine!
-
-## 🔬 How It Works
+## Technical Details
 
 ### Marshal Deserialization Vulnerability
 
-Ruby's `Marshal.load()` and `YAML.load()` can deserialize arbitrary objects, including those with custom `marshal_dump`/`marshal_load` methods. When these methods are called during deserialization, they can trigger code execution through carefully crafted gadget chains.
+Ruby's `Marshal.load()` and `YAML.load()` can deserialize arbitrary objects, including those with custom `marshal_dump`/`marshal_load` methods. When these methods execute during deserialization, they can trigger code execution through carefully crafted gadget chains.
 
-### Technique 1: File Injection
+### Why File Injection Doesn't Reliably Execute Commands
 
-1. Creates a `Gem::StubSpecification` with a malicious `@loaded_from` path
-2. Wraps it in `Gem::Source::SpecificFile` and `Gem::DependencyList`
-3. Uses `Gem::Requirement` with a custom `marshal_dump` to serialize the chain
-4. During deserialization, RubyGems attempts to load the file, executing the path as a command
+On modern Ruby (2.7+), RubyGems has improved path handling that prevents command execution through `@loaded_from`. The path is sanitized and treated as a file path, not executed as a shell command. This makes Techniques 1 and 2 unreliable for RCE but still useful for file operation testing.
 
-### Technique 2: Command Execution (Tag Replacement)
+### Universal RCE Mechanism
 
-1. Similar to Technique 1, but uses a placeholder command tag
-2. The tag is replaced with the actual command after serialization
-3. This allows for dynamic command injection
+Technique 3 works by:
+1. Creating a `Net::WriteAdapter` that wraps `Kernel.system`
+2. Chaining through `Gem::RequestSet` to trigger method calls
+3. Using `Net::BufferedIO` and `Gem::Package::TarReader` to create the call chain
+4. During deserialization, the chain executes `Kernel.system(command)`
 
-### Technique 3: Universal RCE
+This bypasses path sanitization and directly executes system commands, making it reliable across Ruby versions.
 
-1. Creates a chain: `Net::WriteAdapter(Kernel, :system)` → `Gem::RequestSet` → `Net::WriteAdapter` → `Net::BufferedIO` → `Gem::Package::TarReader`
-2. When deserialized, the chain triggers `Kernel.system()` with the specified command
-3. Works across Ruby 2.x and 3.x versions
-
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Error: "Technique is required"
 
-You must specify a technique with `-t`:
-
+Specify a technique:
 ```bash
-./ruby_deser_exploit.rb -t file-injection -p "/path/to/file"
+./ruby_deser.rb -t universal-rce -c "id"
 ```
 
 ### Error: "Path is required for file-injection"
 
-The `file-injection` technique requires a path:
-
+Provide a path:
 ```bash
-./ruby_deser_exploit.rb -t file-injection -p "/tmp/test.txt"
+./ruby_deser.rb -t file-injection -p "/tmp/test.txt"
 ```
 
 ### Error: "Command is required"
 
-The `command-exec` and `universal-rce` techniques require a command:
-
+Provide a command:
 ```bash
-./ruby_deser_exploit.rb -t universal-rce -c "your command here"
+./ruby_deser.rb -t universal-rce -c "your command"
 ```
 
-### Error: "no implicit conversion of nil into String"
+### Payload Not Executing on Target
 
-This usually means RubyGems classes weren't loaded properly. The script should handle this automatically, but if it persists, ensure RubyGems is installed:
+**For Universal RCE:**
+- Verify the target uses `Marshal.load()` on user input
+- Check Ruby version compatibility
+- Ensure the payload format matches what the application expects
 
+**For File Injection:**
+- Remember: This is for file operations, not reliable RCE
+- May work on older Ruby versions (< 2.7)
+- Modern Ruby will sanitize the path
+
+### "no implicit conversion of nil into String"
+
+Ensure RubyGems is properly installed:
 ```bash
 gem --version
 ```
 
-### Payload Not Working on Target
+## Important Notes
 
-- Ensure the target application uses `Marshal.load()` or `YAML.load()` on user input
-- Check Ruby version compatibility (some techniques work better on specific versions)
-- Verify the payload format matches what the application expects (Marshal vs YAML)
-- Test with the `--test` flag locally first (in a safe environment)
+- **RCE Reliability**: Only `universal-rce` provides reliable command execution on modern Ruby
+- **File Operations**: `file-injection` and `command-exec` are primarily for file operations, not RCE
+- **YAML Support**: Only available for Techniques 1 and 2
+- **Payload Size**: Typically 150-350 bytes depending on technique and command/path length
+- **Testing**: Use `--test` flag only in safe, isolated environments
 
-## 📝 Notes
+## Ruby Version Compatibility
 
-- **YAML Support**: Only `file-injection` and `command-exec` techniques support YAML payloads
-- **Payload Size**: Payloads are typically 150-350 bytes depending on the technique and command/path length
-- **Ruby Version**: All techniques have been tested on Ruby 2.x and 3.x
-- **Safety**: The `--test` flag executes the payload locally - use only in safe testing environments
+| Technique | Ruby 2.0-2.6 | Ruby 2.7+ | Ruby 3.x |
+|-----------|--------------|-----------|----------|
+| `file-injection` | File ops ⚠️ | File ops only | File ops only |
+| `command-exec` | File ops ⚠️ | File ops only | File ops only |
+| `universal-rce` | ✅ RCE | ✅ RCE | ✅ RCE |
 
-## 🤝 Contributing
+⚠️ = May have worked for RCE on very old Ruby versions, but unreliable
 
-Contributions, issues, and feature requests are welcome! Feel free to check the existing code and submit improvements.
-
-## 📄 License
+## License
 
 This tool is provided for educational and authorized security testing purposes only. Use responsibly and only on systems you own or have explicit permission to test.
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
-This tool combines multiple Ruby deserialization techniques:
-- File injection via `Gem::StubSpecification` (CVE research)
-- Command execution via tag replacement
-- Universal RCE via `Net::WriteAdapter` chain
-
-## 📞 Support
-
-For issues, questions, or contributions, please open an issue in the repository.
+This tool combines multiple Ruby deserialization research techniques:
+- File injection via `Gem::StubSpecification` (file operations)
+- Command tag replacement (legacy technique)
+- Universal RCE via `Net::WriteAdapter` chain (reliable RCE)
 
 ---
 
 **Remember:** Always use this tool responsibly and only for authorized security testing!
-
