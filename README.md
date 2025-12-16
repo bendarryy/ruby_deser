@@ -278,7 +278,7 @@ This tool is provided for educational and authorized security testing purposes o
 This tool combines multiple Ruby deserialization research techniques:
 - File injection via `Gem::StubSpecification` (file operations)
 - Command tag replacement (legacy technique)
-- Universal RCE via `Net::WriteAdapter` chain (reliable RCE)
+- Universal RCE via `Net::WriteAdapter` chain (reliable RCE) https://devcraft.io/2021/01/07/universal-deserialisation-gadget-for-ruby-2-x-3-x.html
 
 ---
 
